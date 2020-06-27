@@ -8,6 +8,7 @@ import beams as b
 STATE_DISABLED = "disabled"
 STATE_ENABLED = "!disabled"
 STATE_READONLY = "readonly"
+NO_RESULT_MESSAGE = "No beams found that match the given criteria"
 
 # Classes
 
@@ -31,49 +32,56 @@ class GUIWindow(tk.Frame):
         condition_label_row = 0
         self.condition_label = ttk.Label(self.mainframe, text="Condition:")
         self.condition_label.grid(column=0, row=condition_label_row)
-        self.condition_add_button = ttk.Button(self.mainframe, text="Add condition", command=self.add_constraint)
-        self.condition_add_button.grid(column=1, row=condition_label_row)
-        self.condition_remove_button = ttk.Button(self.mainframe,
-                                                  text="Remove condition",
-                                                  command=self.remove_constraint)
-        self.condition_remove_button.grid(column=2, row=condition_label_row)
-        self.condition_remove_button["state"] = STATE_DISABLED
 
         condition_option_row = condition_label_row + 1
-        self.column_label = ttk.Label(self.mainframe, text="Column")
-        self.column_label.grid(column=0, row=condition_option_row)
+        self.column_frame = ttk.Frame(self.mainframe)
+        self.column_frame.grid(row=condition_option_row, column=0)
+        self.column_label = ttk.Label(self.column_frame, text="Column")
+        self.column_label.grid(column=0, row=0)
         self.column_value = tk.StringVar()
-        self.column_combobox = ttk.Combobox(self.mainframe, textvariable=self.column_value)
-        self.column_combobox.grid(column=0, row=condition_option_row+1)
-        self.column_combobox['values'] = tuple(self.beams[0].columns)
+        self.column_combobox = ttk.Combobox(self.column_frame, textvariable=self.column_value)
+        self.column_combobox.grid(column=0, row=1)
+        self.column_combobox['values'] = self.get_all_beam_columns()
         self.column_combobox["state"] = STATE_READONLY
 
-        self.comparison_label = ttk.Label(self.mainframe, text="Comparison")
-        self.comparison_label.grid(column=1, row=condition_option_row)
+        self.comparison_frame = ttk.Frame(self.mainframe)
+        self.comparison_frame.grid(row=condition_option_row, column=1)
+        self.comparison_label = ttk.Label(self.comparison_frame, text="Comparison")
+        self.comparison_label.grid(column=0, row=0)
         self.comparison_value = tk.StringVar()
-        self.comparison_combobox = ttk.Combobox(self.mainframe, textvariable=self.comparison_value)
-        self.comparison_combobox.grid(column=1, row=condition_option_row+1)
+        self.comparison_combobox = ttk.Combobox(self.comparison_frame, textvariable=self.comparison_value)
+        self.comparison_combobox.grid(column=0, row=1)
         self.comparison_combobox['values'] = ["=", "!=", "<", ">", "<=", ">="]
         self.comparison_combobox["state"] = STATE_READONLY
 
-        self.condition_value_label = ttk.Label(self.mainframe, text="Value")
-        self.condition_value_label.grid(column=2, row=condition_option_row)
+        self.condition_value_frame = ttk.Frame(self.mainframe)
+        self.condition_value_frame.grid(row=condition_option_row, column=2)
+        self.condition_value_label = ttk.Label(self.condition_value_frame, text="Value")
+        self.condition_value_label.grid(column=0, row=0)
         self.condition_value = tk.StringVar()
-        self.condition_value_entry = ttk.Entry(self.mainframe, textvariable=self.condition_value)
-        self.condition_value_entry.grid(column=2, row=condition_option_row+1, sticky=(tk.S, tk.E))
+        self.condition_value_entry = ttk.Entry(self.condition_value_frame, textvariable=self.condition_value)
+        self.condition_value_entry.grid(column=0, row=1, sticky=(tk.S, tk.E))
+
+        self.condition_add_button = ttk.Button(self.mainframe, text="Add", command=self.add_constraint)
+        self.condition_add_button.grid(column=3, row=condition_option_row, sticky=tk.S)
+        self.condition_remove_button = ttk.Button(self.mainframe,
+                                                  text="Remove",
+                                                  command=self.remove_constraint)
+        self.condition_remove_button.grid(column=4, row=condition_option_row, sticky=tk.S)
+        self.condition_remove_button["state"] = STATE_DISABLED
 
         condition_listbox_row = condition_option_row + 2
         self.conditions_listbox = tk.Listbox(self.mainframe, height=5)
-        self.conditions_listbox.grid(column=0, row=condition_listbox_row, sticky=(tk.W, tk.E), columnspan=4)
+        self.conditions_listbox.grid(column=0, row=condition_listbox_row, sticky=(tk.W, tk.E), columnspan=5)
         self.conditions_y_scrollbar = ttk.Scrollbar(self.mainframe,
                                                     orient=tk.VERTICAL,
                                                     command=self.conditions_listbox.yview)
-        self.conditions_y_scrollbar.grid(column=4, row=condition_listbox_row, rowspan=4, sticky=(tk.N, tk.S, tk.E))
+        self.conditions_y_scrollbar.grid(column=5, row=condition_listbox_row, rowspan=4, sticky=(tk.N, tk.S, tk.E))
         self.conditions_listbox["yscrollcommand"] = self.conditions_y_scrollbar.set
         self.conditions_x_scrollbar = ttk.Scrollbar(self.mainframe,
                                                  orient=tk.HORIZONTAL,
                                                  command=self.conditions_listbox.xview)
-        self.conditions_x_scrollbar.grid(column=0, row=condition_listbox_row+5, columnspan=4, sticky=(tk.S, tk.W, tk.E))
+        self.conditions_x_scrollbar.grid(column=0, row=condition_listbox_row+5, columnspan=5, sticky=(tk.S, tk.W, tk.E))
         self.conditions_listbox["xscrollcommand"] = self.conditions_x_scrollbar.set
         self.selected_condition_index = 0
         self.conditions_listbox.bind("<<ListboxSelect>>", self.update_selected_condition)
@@ -108,16 +116,16 @@ class GUIWindow(tk.Frame):
 
         results_listbox_row = evaluate_row + 1
         self.results_listbox = tk.Listbox(self.mainframe, height=5)
-        self.results_listbox.grid(column=0, row=results_listbox_row, sticky=(tk.W, tk.E), columnspan=4)
+        self.results_listbox.grid(column=0, row=results_listbox_row, sticky=(tk.W, tk.E), columnspan=5)
         self.results_y_scrollbar = ttk.Scrollbar(self.mainframe,
                                                     orient=tk.VERTICAL,
                                                     command=self.results_listbox.yview)
-        self.results_y_scrollbar.grid(column=4, row=results_listbox_row, rowspan=4, sticky=(tk.N, tk.S, tk.E))
+        self.results_y_scrollbar.grid(column=5, row=results_listbox_row, rowspan=4, sticky=(tk.N, tk.S, tk.E))
         self.results_listbox["yscrollcommand"] = self.results_y_scrollbar.set
         self.results_x_scrollbar = ttk.Scrollbar(self.mainframe,
                                                  orient=tk.HORIZONTAL,
                                                  command=self.results_listbox.xview)
-        self.results_x_scrollbar.grid(column=0, row=results_listbox_row+5, columnspan=4, sticky=(tk.S, tk.W, tk.E))
+        self.results_x_scrollbar.grid(column=0, row=results_listbox_row+5, columnspan=5, sticky=(tk.S, tk.W, tk.E))
         self.results_listbox["xscrollcommand"] = self.results_x_scrollbar.set
 
     def add_constraint(self):
@@ -125,6 +133,9 @@ class GUIWindow(tk.Frame):
         new_condition = c.Condition(self.column_value.get(), comparison, self.condition_value.get())
         self.criteria.add_condition(new_condition)
         self.conditions_listbox.insert("end", str(new_condition))
+        self.column_value.set("")
+        self.comparison_value.set("")
+        self.condition_value.set("")
 
     def remove_constraint(self, *args):
         for index in self.conditions_listbox.curselection():
@@ -162,6 +173,9 @@ class GUIWindow(tk.Frame):
                 if self.evaluator.evaluate_criteria(self.criteria, beam):
                     self.results_listbox.insert("end", str(beam))
 
+        if self.results_listbox.size() < 1:
+            self.results_listbox.insert("end", NO_RESULT_MESSAGE)
+
     def update_selected_condition(self, *args):
         if len(self.conditions_listbox.curselection()) < 1:
             self.condition_remove_button["state"] = STATE_DISABLED
@@ -180,3 +194,15 @@ class GUIWindow(tk.Frame):
             types.append(b.UNIVERSAL_COLUMN)
 
         return c.Condition(b.TYPE, c.TYPE, types)
+
+    def get_all_beam_columns(self):
+        columns = []
+        types = []
+        for beam in self.beams:
+            if not beam.get_type() in types:
+                types.append(beam.get_type())
+                for column in beam.columns:
+                    if column not in columns:
+                        columns.append(column)
+
+        return tuple(columns)
